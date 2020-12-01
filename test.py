@@ -5,8 +5,8 @@ import torch
 
 from datetime import datetime
 import torch.optim as optim
-from model import IDCM_NN, ResNet50
-from load_data import get_loader_test, get_loader_match
+from model import C2R, C2R_Se
+from load_data import get_loader_test, get_loader
 from evaluate import test_recall1, fx_calc_recall, fx_calc_map_label
 import numpy as np
 ######################################################################
@@ -16,13 +16,12 @@ if __name__ == '__main__':
     # environmental setting: setting the following parameters based on your experimental environment.
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # data parameters
-    cartoon_batch_size = 32
-    portrait_batch_size = 64
+    batch_size = 32
     
     test_compute = True
-    valid_compute = False
+    valid_compute = True
     
-    model = IDCM_NN().to(device)
+    model = C2R().to(device)
     model.load_state_dict(torch.load('weights/best.pt'))
     model.eval()
 
@@ -33,7 +32,7 @@ if __name__ == '__main__':
         
         print('...Data loading is beginning...')
         
-        cartoon_dataloader, portrait_dataloader = get_loader_test(dataset_path='/media/ckq/datasets/cartoon/test', cartoon_txt='/media/ckq/datasets/cartoon/cartoon_id.txt', portrait_txt='/media/ckq/datasets/cartoon/real_id.txt', batch_size=cartoon_batch_size)
+        cartoon_dataloader, portrait_dataloader = get_loader_test(dataset_path='/media/ckq/datasets/cartoon/test', cartoon_txt='/media/ckq/datasets/cartoon/cartoon_id.txt', portrait_txt='/media/ckq/datasets/cartoon/real_id.txt', batch_size=batch_size)
         
         print('...Data loading is completed...')
         
@@ -58,7 +57,7 @@ if __name__ == '__main__':
         t_portrait_features = np.concatenate(t_portrait_features)
         t_portrait_names = np.concatenate(t_portrait_names)
         
-        results = test_recall1(t_portrait_features, t_portrait_names, t_cartoon_features, t_cartoon_names)
+        results = test_recall1(t_cartoon_features, t_cartoon_names, t_portrait_features, t_portrait_names)
     
         results_txt = 'results.txt'
         with open(results_txt, 'w') as f:
@@ -73,7 +72,7 @@ if __name__ == '__main__':
         
         print('...Data loading is beginning...')
         
-        dataloader, cartoon_dataloader, portrait_dataloader = get_loader_match(dataset_path='/media/ckq/datasets/cartoon/train', cartoon_batch_size=cartoon_batch_size, portrait_batch_size=portrait_batch_size)
+        dataloader, cartoon_dataloader, portrait_dataloader = get_loader(dataset_path='/media/ckq/datasets/cartoon/train', batch_size=batch_size, num_per_cls=1)
         
         print('...Data loading is completed...')
         
@@ -100,8 +99,8 @@ if __name__ == '__main__':
         t_portrait_features = np.concatenate(t_portrait_features)
         t_portrait_names = np.concatenate(t_portrait_names)
         
-        Sketch2Video_map = fx_calc_map_label(t_portrait_features, t_portrait_names, t_cartoon_features, t_cartoon_names)
-        Sketch2Video = fx_calc_recall(t_portrait_features, t_portrait_names, t_cartoon_features, t_cartoon_names)
+        Sketch2Video_map = fx_calc_map_label(t_cartoon_features, t_cartoon_names, t_portrait_features, t_portrait_names)
+        Sketch2Video = fx_calc_recall(t_cartoon_features, t_cartoon_names, t_portrait_features, t_portrait_names)
         print('Sketch2Video: mAP = {:.4f} R1 = {:.4f} R5 = {:.4f} R10 = {:.4f}'.format(Sketch2Video_map, Sketch2Video[0], Sketch2Video[1], Sketch2Video[2]))
         
         print('...Validating is completed...')
