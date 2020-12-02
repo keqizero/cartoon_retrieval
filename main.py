@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # data parameters
     MAX_EPOCH = 100
     batch_size = 40
-    lr = 1e-4
+    lr = 1e-5
     betas = (0.5, 0.999)
     weight_decay = 0
     hyper_parameters = {'cm_tri': 1, 'margin': 10, 'num_per_cls': 4}
