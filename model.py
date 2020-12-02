@@ -24,7 +24,7 @@ class ResNet50(nn.Module):
     The Network has been broken down to allow for higher modularity, if one wishes
     to target specific layers/blocks directly.
     """
-    def __init__(self, embed_dim=512, list_style=False, no_norm=False, pretrained=True):
+    def __init__(self, list_style=False, no_norm=False, pretrained=True):
         super(ResNet50, self).__init__()
 
         if pretrained:
@@ -52,33 +52,65 @@ class ResNet50(nn.Module):
         x = self.model.avgpool(x)
         x = x.view(x.size(0),-1)
         
+        #x = self.model.last_linear(x)
         return x
+        #return torch.nn.functional.normalize(x, dim=-1) * 50
 
         #mod_x = self.model.last_linear(x)
         
         #return torch.nn.functional.normalize(mod_x, dim=-1)
 
+class F_R(nn.Module):
+    def __init__(self, cls_num=512):
+        super(F_R, self).__init__()
+        self.backbone = ResNet50()
+        self.linear_layer = nn.Linear(2048, cls_num)
+
+    def forward(self, x):
+        x = self.backbone(x)
+        pred = self.linear_layer(x)
+        return x, pred
+        
 class C2R(nn.Module):
     """Network to learn text representations"""
-    def __init__(self, embed_dim=512):
+    def __init__(self, cls_num=512):
         super(C2R, self).__init__()
-        self.cartoon_net = ResNet50(embed_dim)
-        self.portrait_net = ResNet50(embed_dim)
+        self.cartoon_net = ResNet50()
+        #pretrained_model = torch.load('weights/c_best1.pt')
+        #model_dict = self.cartoon_net.state_dict()
+        #state_dict = {k:v for k,v in pretrained_model.items() if k in model_dict.keys()}
+        #model_dict.update(state_dict)
+        #self.cartoon_net.load_state_dict(model_dict)
+        
+        self.portrait_net = ResNet50()
+        #pretrained_model = torch.load('weights/p_best1.pt')
+        #model_dict = self.portrait_net.state_dict()
+        #state_dict = {k:v for k,v in pretrained_model.items() if k in model_dict.keys()}
+        #model_dict.update(state_dict)
+        #self.portrait_net.load_state_dict(model_dict)
+        
+        self.c_linear = nn.Linear(2048, cls_num)
+        self.p_linear = nn.Linear(2048, cls_num)
 
     def forward(self, cartoons=None, portraits=None):
         if cartoons == None:
             portraits_feature = self.portrait_net(portraits)
-            return portraits_feature
+            portraits_predict = self.p_linear(portraits_feature)
+            return portraits_feature, portraits_predict
         if portraits == None:
             cartoons_feature = self.cartoon_net(cartoons)
-            return cartoons_feature
+            cartoons_predict = self.c_linear(cartoons_feature)
+            return cartoons_feature, cartoons_predict
         
         cartoons_feature = self.cartoon_net(cartoons)
+        cartoons_predict = self.c_linear(cartoons_feature)
+        
         portraits_feature = self.portrait_net(portraits)
+        portraits_predict = self.p_linear(portraits_feature)
 
-        return cartoons_feature, portraits_feature
-    
-'''
+        return cartoons_feature, portraits_feature, cartoons_predict, portraits_predict  
+
+
 class ImgNN(nn.Module):
     """Network to learn image representations"""
     def __init__(self, input_dim=4096, output_dim=1024):
@@ -114,19 +146,19 @@ class IDCM_NN(nn.Module):
         if cartoons == None:
             view2_feature = self.video_net(portraits)
             view2_feature = self.linearLayer2(view2_feature)
-            return view2_feature
+            return view2_feature, 0
         if portraits == None:
             view1_feature = self.sketch_net(cartoons)
             view1_feature = self.linearLayer1(view1_feature)
-            return view1_feature
+            return view1_feature, 0
         
         view1_feature = self.sketch_net(cartoons)
         view2_feature = self.video_net(portraits)
         view1_feature = self.linearLayer1(view1_feature)
         view2_feature = self.linearLayer2(view2_feature)
 
-        return view1_feature, view2_feature
-'''
+        return view1_feature, view2_feature, 0, 0
+
 
 class C2R_Se(nn.Module):
     """Network to learn text representations"""

@@ -389,36 +389,45 @@ def get_loader_feature(cartoon_feature_path, portrait_feature_path, batch_size, 
         c_features = np.asarray(c_file.get(key_name + '/features'))
         p_features = np.asarray(p_file.get(key_name + '/features'))
         
-        if index < train_label:
-            if str(index) not in cartoon_train_dict:
-                cartoon_train_dict[str(index)] = []
-            if str(index) not in portrait_train_dict:
-                portrait_train_dict[str(index)] = []
-            
-            for c_feature in c_features:
+        c_num = len(c_features)
+        p_num = len(p_features)
+        if c_num < 2 or p_num < 2:
+            continue
+        c_train_num = int(c_num * 0.8)
+        p_train_num = int(p_num * 0.8)
+        
+        if str(index) not in cartoon_train_dict:
+            cartoon_train_dict[str(index)] = []
+        if str(index) not in portrait_train_dict:
+            portrait_train_dict[str(index)] = []
+        if str(index) not in cartoon_valid_dict:
+            cartoon_valid_dict[str(index)] = []
+        if str(index) not in portrait_valid_dict:
+            portrait_valid_dict[str(index)] = []
+        
+        c_index = p_index = 0
+        
+        for c_feature in c_features:
+            if c_index < c_train_num:
                 cartoon_train.append(c_feature)
                 cartoon_label_train.append([index])
                 cartoon_train_dict[str(index)].append(c_feature)
-            
-            for p_feature in p_features:
-                portrait_train.append(p_feature)
-                portrait_label_train.append([index])
-                portrait_train_dict[str(index)].append(p_feature)
-        else:
-            if str(index) not in cartoon_valid_dict:
-                cartoon_valid_dict[str(index)] = []
-            if str(index) not in portrait_valid_dict:
-                portrait_valid_dict[str(index)] = []
-            
-            for c_feature in c_features:
+            else:
                 cartoon_valid.append(c_feature)
                 cartoon_label_valid.append([index])
                 cartoon_valid_dict[str(index)].append(c_feature)
+            c_index += 1
             
-            for p_feature in p_features:
+        for p_feature in p_features:
+            if p_index < p_train_num:
+                portrait_train.append(p_feature)
+                portrait_label_train.append([index])
+                portrait_train_dict[str(index)].append(p_feature)
+            else:
                 portrait_valid.append(p_feature)
                 portrait_label_valid.append([index])
                 portrait_valid_dict[str(index)].append(p_feature)
+            p_index += 1
     
     cartoon_train = np.asarray(cartoon_train)
     cartoon_valid = np.asarray(cartoon_valid)
@@ -429,10 +438,10 @@ def get_loader_feature(cartoon_feature_path, portrait_feature_path, batch_size, 
     portrait_label_train = np.asarray(portrait_label_train)
     portrait_label_valid = np.asarray(portrait_label_valid)
 
-    #cartoon_label_train = ind2vec(cartoon_label_train, num_class).astype(int)
-    #cartoon_label_valid = ind2vec(cartoon_label_valid, num_class).astype(int)
-    #portrait_label_train = ind2vec(portrait_label_train, num_class).astype(int)
-    #portrait_label_valid = ind2vec(portrait_label_valid, num_class).astype(int)
+    cartoon_label_train = ind2vec(cartoon_label_train, num_class).astype(int)
+    cartoon_label_valid = ind2vec(cartoon_label_valid, num_class).astype(int)
+    portrait_label_train = ind2vec(portrait_label_train, num_class).astype(int)
+    portrait_label_valid = ind2vec(portrait_label_valid, num_class).astype(int)
 
     cartoons = {'train': cartoon_train, 'valid': cartoon_valid}
     cartoon_labels = {'train': cartoon_label_train, 'valid': cartoon_label_valid}
@@ -559,6 +568,8 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
                 p_index += 1
         label += 1
     
+    num_class = label
+    
     cartoon_train = np.asarray(cartoon_train)
     cartoon_valid = np.asarray(cartoon_valid)
     cartoon_label_train = np.asarray(cartoon_label_train)
@@ -567,6 +578,11 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
     portrait_valid = np.asarray(portrait_valid)
     portrait_label_train = np.asarray(portrait_label_train)
     portrait_label_valid = np.asarray(portrait_label_valid)
+    
+    cartoon_label_train = ind2vec(cartoon_label_train, num_class).astype(int)
+    cartoon_label_valid = ind2vec(cartoon_label_valid, num_class).astype(int)
+    portrait_label_train = ind2vec(portrait_label_train, num_class).astype(int)
+    portrait_label_valid = ind2vec(portrait_label_valid, num_class).astype(int)
 
     cartoons = {'train': cartoon_train, 'valid': cartoon_valid}
     cartoon_labels = {'train': cartoon_label_train, 'valid': cartoon_label_valid}
@@ -588,4 +604,72 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
     dataloader['train'] = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, sampler=SequentialSampler(train_dataset), pin_memory=True, drop_last=True)
     dataloader['valid'] = DataLoader(valid_dataset, batch_size=batch_size, num_workers=8, sampler=SequentialSampler(valid_dataset), pin_memory=True, drop_last=True)
     
-    return dataloader, cartoon_dataloader, portrait_dataloader
+    input_data_par = {}
+    input_data_par['num_class'] = num_class
+    
+    return dataloader, cartoon_dataloader, portrait_dataloader, input_data_par
+
+# get a single loader
+def get_single_loader(dataset_path, batch_size, pic_type='c'):
+    
+    label = 0
+    
+    train = []
+    valid = []
+    label_train = []
+    label_valid = []
+    
+    train_dict, valid_dict  = {}, {}
+    for (root, dirs, files) in os.walk(dataset_path):
+        if len(dirs):
+            continue
+            
+        num = 0
+        for name in files:
+            if name[0].lower() == pic_type:
+                num += 1
+        train_num = int(num * 0.8)
+        
+        if str(label) not in train_dict:
+            train_dict[str(label)] = []
+        if str(label) not in valid_dict:
+            valid_dict[str(label)] = []
+        
+        index = 0
+        for name in files:
+            file_path = os.path.join(root, name)
+            if name[0].lower() == pic_type:
+                if index < train_num:
+                    train.append(file_path)
+                    label_train.append([label])
+                    train_dict[str(label)].append(file_path)
+                else:
+                    valid.append(file_path)
+                    label_valid.append([label])
+                    valid_dict[str(label)].append(file_path)
+                index += 1
+        label += 1
+    
+    num_class = label
+    
+    train = np.asarray(train)
+    valid = np.asarray(valid)
+    label_train = np.asarray(label_train)
+    label_valid = np.asarray(label_valid)
+    
+    #label_train = ind2vec(label_train, num_class).astype(int)
+    #label_valid = ind2vec(label_valid, num_class).astype(int)
+
+    pics = {'train': train, 'valid': valid}
+    labels = {'train': label_train, 'valid': label_valid}
+    
+    dataset = {x: ImageDataSet(pics[x], labels[x]) for x in ['train', 'valid']}
+    
+    shuffle = {'train': True, 'valid': False}
+
+    dataloader = {x: DataLoader(dataset[x], batch_size=batch_size, shuffle=shuffle[x], num_workers=0) for x in ['train', 'valid']}
+    
+    input_data_par = {}
+    input_data_par['num_class'] = num_class
+    
+    return dataloader, input_data_par

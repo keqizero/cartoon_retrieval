@@ -29,7 +29,7 @@ def fx_calc_map_label(cartoons, cartoon_labels, portraits, portrait_labels, k = 
         p = 0.0
         r = 0.0
         for j in range(k):
-            if cartoon_labels[i] == portrait_labels[order[j]]:
+            if all(cartoon_labels[i] == portrait_labels[order[j]]):
                 r += 1
                 p += (r / (j + 1))
         if r > 0:
@@ -54,7 +54,7 @@ def fx_calc_recall(cartoons, cartoon_labels, portraits, portrait_labels, recalls
             r = 0
             r_a = 0
             for j in range(k):
-                if cartoon_labels[i] == portrait_labels[order[j]]:
+                if all(cartoon_labels[i] == portrait_labels[order[j]]):
                     if j < recall:
                         r += 1
                     r_a += 1

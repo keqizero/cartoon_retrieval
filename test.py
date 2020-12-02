@@ -21,8 +21,8 @@ if __name__ == '__main__':
     test_compute = True
     valid_compute = True
     
-    model = C2R().to(device)
-    model.load_state_dict(torch.load('weights/best.pt'))
+    model = C2R(122).to(device)
+    model.load_state_dict(torch.load('weights/best_3912.pt'))
     model.eval()
 
     print('...Testing is beginning...')
@@ -41,14 +41,14 @@ if __name__ == '__main__':
             for cartoons, cartoon_names in cartoon_dataloader:
                 cartoons = cartoons.to(device)
                 cartoon_names = np.asarray(cartoon_names)
-                cartoons_feature = model(cartoons=cartoons)
+                cartoons_feature, _ = model(cartoons=cartoons)
                 t_cartoon_features.append(cartoons_feature.cpu().numpy())
                 t_cartoon_names.append(cartoon_names)
             
             for portraits, portrait_names in portrait_dataloader:
                 portraits = portraits.to(device)
                 portrait_names = np.asarray(portrait_names)
-                portraits_feature = model(portraits=portraits)
+                portraits_feature, _ = model(portraits=portraits)
                 t_portrait_features.append(portraits_feature.cpu().numpy())
                 t_portrait_names.append(portrait_names)
             
@@ -72,7 +72,7 @@ if __name__ == '__main__':
         
         print('...Data loading is beginning...')
         
-        dataloader, cartoon_dataloader, portrait_dataloader = get_loader(dataset_path='/media/ckq/datasets/cartoon/train', batch_size=batch_size, num_per_cls=1)
+        dataloader, cartoon_dataloader, portrait_dataloader, _ = get_loader(dataset_path='/media/ckq/datasets/cartoon/train', batch_size=batch_size, num_per_cls=1)
         
         print('...Data loading is completed...')
         
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                 cartoons = cartoons.to(device)
                 cartoon_names = cartoon_names.to(device)
                 #cartoon_names = np.asarray(cartoon_names)
-                cartoons_feature = model(cartoons=cartoons)
+                cartoons_feature, _ = model(cartoons=cartoons)
                 t_cartoon_features.append(cartoons_feature.cpu().numpy())
                 t_cartoon_names.append(cartoon_names.cpu().squeeze(-1).numpy())
             
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                 portraits = portraits.to(device)
                 portrait_names = portrait_names.to(device)
                 #portrait_names = np.asarray(portrait_names)
-                portraits_feature = model(portraits=portraits)
+                portraits_feature, _ = model(portraits=portraits)
                 t_portrait_features.append(portraits_feature.cpu().numpy())
                 t_portrait_names.append(portrait_names.cpu().squeeze(-1).numpy())
             
