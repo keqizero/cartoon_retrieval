@@ -72,65 +72,45 @@ def CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls):
     
     return loss
 
-def CrossModel_triplet_loss_center(view1_feature, view2_feature, margin, num_per_cls):
+def CrossModel_triplet_loss_hard_center(view1_feature, view2_feature, margin, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
     cls_num = len(view1_feature) // num_per_cls
     
-    label_indices = np.arange(cls_num)
-    triplets = list(itertools.combinations(label_indices, 2))
-    
-    length = len(triplets)
-    
     view1_feature_avg = []
     view2_feature_avg = []
-    view1_feature_var = []
-    view2_feature_var = []
     for i in range(cls_num):
         view1_group = view1_feature[i * num_per_cls:(i + 1) * num_per_cls]
         view1_group_avg = view1_group.mean(0)
-        view1_var = (view1_group - view1_group_avg).pow(2).sum(-1).mean()
-        
         view1_feature_avg.append(view1_group_avg.unsqueeze(0))
-        view1_feature_var.append(view1_var.unsqueeze(0))
         
         view2_group = view2_feature[i * num_per_cls:(i + 1) * num_per_cls]
         view2_group_avg = view2_group.mean(0)
-        view2_var = (view2_group - view2_group_avg).pow(2).sum(-1).mean()
-        
         view2_feature_avg.append(view2_group_avg.unsqueeze(0))
-        view2_feature_var.append(view2_var.unsqueeze(0))
     
     view1_feature_avg = torch.cat(view1_feature_avg)
     view2_feature_avg = torch.cat(view2_feature_avg)
-    view1_feature_var = torch.cat(view1_feature_var).mean()
-    view2_feature_var = torch.cat(view2_feature_var).mean()
-
-    if length:
-        triplets = np.array(triplets)
-        # print('triplet', triplets.shape)
-
-        # cross model triplet loss
-        # anchor-image    negative,positive-text
-        image_text_I_ap_0 = (view1_feature_avg[triplets[:, 0]] - view2_feature_avg[triplets[:, 0]]).pow(2).sum(-1)
-        image_text_I_an_0 = (view1_feature_avg[triplets[:, 0]] - view2_feature_avg[triplets[:, 1]]).pow(2).sum(-1)
-        image_text_triplet_loss_0 = F.relu(margin + image_text_I_ap_0 - image_text_I_an_0).mean()
-        
-        image_text_I_ap_1 = (view1_feature_avg[triplets[:, 1]] - view2_feature_avg[triplets[:, 1]]).pow(2).sum(-1)
-        image_text_I_an_1 = (view1_feature_avg[triplets[:, 1]] - view2_feature_avg[triplets[:, 0]]).pow(2).sum(-1)
-        image_text_triplet_loss_1 = F.relu(margin + image_text_I_ap_1 - image_text_I_an_1).mean()
-        
-        text_image_I_ap_0 = (view2_feature_avg[triplets[:, 0]] - view1_feature_avg[triplets[:, 0]]).pow(2).sum(-1)
-        text_image_I_an_0 = (view2_feature_avg[triplets[:, 0]] - view1_feature_avg[triplets[:, 1]]).pow(2).sum(-1)
-        text_image_triplet_loss_0 = F.relu(margin + text_image_I_ap_0 - text_image_I_an_0).mean()
-        
-        text_image_I_ap_1 = (view2_feature_avg[triplets[:, 1]] - view1_feature_avg[triplets[:, 1]]).pow(2).sum(-1)
-        text_image_I_an_1 = (view2_feature_avg[triplets[:, 1]] - view1_feature_avg[triplets[:, 0]]).pow(2).sum(-1)
-        text_image_triplet_loss_1 = F.relu(margin + text_image_I_ap_1 - text_image_I_an_1).mean()
-
-        loss = image_text_triplet_loss_0 + image_text_triplet_loss_1 + text_image_triplet_loss_0 + text_image_triplet_loss_1 + (view1_feature_var + view2_feature_var) * 0.1
-        #print(str(image_text_triplet_loss_0) + ' ' + str(image_text_triplet_loss_1) + ' ' + str(text_image_triplet_loss_0) + ' ' + str(text_image_triplet_loss_1) + ' ' + str(view1_feature_var) + ' ' + str(view2_feature_var))
+    
+    view1_tri_loss = []
+    for index, view1 in enumerate(view1_feature_avg):
+        d_all = (view1 - view2_feature_avg).pow(2).sum(-1)
+        d_p = d_all[index].max()
+        if index == 0:
+            d_n = d_all[(index + 1):].min()
+        elif index == cls_num - 1:
+            d_n = d_all[:index].min()
+        else:
+            d_n1 = d_all[:index].min()
+            d_n2 = d_all[(index + 1):].min()
+            if d_n1 > d_n2:
+                d_n = d_n2
+            else:
+                d_n = d_n1
+        view1_tri_loss.append(F.relu(margin + d_p - d_n).unsqueeze(0))
+    view1_tri_loss = torch.cat(view1_tri_loss)
+    
+    loss = view1_tri_loss.mean()
     
     return loss
 
@@ -164,19 +144,99 @@ def CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_c
     
     return loss
 
+def CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin_pn, margin_nn, num_per_cls):
+    loss = torch.tensor(0.0).cuda()
+    loss.requires_grad = True
+    
+    cls_num = len(view1_feature) // num_per_cls
+    
+    view1_tri_loss = []
+    for index, view1 in enumerate(view1_feature):
+        cur_cls = index // num_per_cls
+        view2_index = cur_cls * num_per_cls
+        d_all = (view1 - view2_feature).pow(2).sum(-1)
+        d_p = d_all[view2_index:(view2_index + num_per_cls)].max()
+        if cur_cls == 0:
+            d_n = d_all[(view2_index + num_per_cls):].min()
+            d_n_index = d_all[(view2_index + num_per_cls):].argmin() + (view2_index + num_per_cls)
+        elif cur_cls == cls_num - 1:
+            d_n = d_all[:view2_index].min()
+            d_n_index = d_all[:view2_index].argmin()
+        else:
+            d_n1 = d_all[:view2_index].min()
+            d_n2 = d_all[(view2_index + num_per_cls):].min()
+            if d_n1 > d_n2:
+                d_n = d_n2
+                d_n_index = d_all[(view2_index + num_per_cls):].argmin() + (view2_index + num_per_cls)
+            else:
+                d_n = d_n1
+                d_n_index = d_all[:view2_index].argmin()
+        
+        cur_cls_n = d_n_index // num_per_cls
+        view2_index_n = cur_cls_n * num_per_cls
+        view2_n = view2_feature[d_n_index]
+        d_all_n = (view2_n - view2_feature).pow(2).sum(-1)
+        if cur_cls_n == 0:
+            d_nn = d_all_n[(view2_index_n + num_per_cls):].min()
+        elif cur_cls_n == cls_num - 1:
+            d_nn = d_all_n[:view2_index_n].min()
+        else:
+            d_nn1 = d_all_n[:view2_index_n].min()
+            d_nn2 = d_all_n[(view2_index_n + num_per_cls):].min()
+            if d_nn1 > d_nn2:
+                d_nn = d_nn2
+            else:
+                d_nn = d_nn1
+        
+        view1_tri_loss.append(F.relu(margin_pn + d_p - d_n).unsqueeze(0) + F.relu(margin_nn + d_p - d_nn).unsqueeze(0))
+    view1_tri_loss = torch.cat(view1_tri_loss)
+    
+    loss = view1_tri_loss.mean()
+    
+    return loss
+
+def CrossModel_center_loss(view1_feature, view2_feature, num_per_cls):
+    loss = torch.tensor(0.0).cuda()
+    loss.requires_grad = True
+    
+    cls_num = len(view1_feature) // num_per_cls
+    
+    view1_feature_var = []
+    view2_feature_var = []
+    for i in range(cls_num):
+        view1_group = view1_feature[i * num_per_cls:(i + 1) * num_per_cls]
+        view1_group_avg = view1_group.mean(0)
+        view1_var = (view1_group - view1_group_avg).pow(2).sum(-1).mean()        
+        view1_feature_var.append(view1_var.unsqueeze(0))
+        
+        view2_group = view2_feature[i * num_per_cls:(i + 1) * num_per_cls]
+        view2_group_avg = view2_group.mean(0)
+        view2_var = (view2_group - view2_group_avg).pow(2).sum(-1).mean()        
+        view2_feature_var.append(view2_var.unsqueeze(0))
+    
+    view1_feature_var = torch.cat(view1_feature_var).mean()
+    view2_feature_var = torch.cat(view2_feature_var).mean()
+    
+    loss = view1_feature_var + view2_feature_var
+    
+    return loss
+
 def calc_loss(view1_feature, view2_feature, view1_predict, view2_predict, labels_1, labels_2, hyper_parameters):
     
     cm_tri = hyper_parameters['cm_tri']
     margin = hyper_parameters['margin']
     num_per_cls = hyper_parameters['num_per_cls']
     
-    #term1 = CrossModel_triplet_loss_center(view1_feature, view2_feature, margin, num_per_cls)
     term1 = CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_cls)
+    #term1 = CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin, 20, num_per_cls)
+    #term2 = CrossModel_center_loss(view1_feature, view2_feature, num_per_cls)
     
     im_loss = cm_tri * term1
+    #criteria = AngleLoss()
     #criteria = nn.CrossEntropyLoss()
-    #term2 = criteria(view1_predict, labels_1.squeeze()) + criteria(view2_predict, labels_2.squeeze())
-    #im_loss = cm_tri * term1 + term2
+    #criteria = criteria.cuda()
+    #term2 = criteria(view1_predict, labels_1.squeeze()) + criteria(view1_predict, labels_2.squeeze())
+    #im_loss = term2
     
     return im_loss
 
@@ -228,7 +288,6 @@ def train_model(model, dataloader, cartoon_dataloader, portrait_dataloader, hype
                     cartoons_feature, portraits_feature, cartoons_predict, portraits_predict = model(cartoons, portraits)
                     #print('b' * 20)
                     loss = calc_loss(cartoons_feature, portraits_feature, cartoons_predict, portraits_predict, cartoon_labels, portrait_labels, hyper_parameters)
-                    #loss = calc_loss_test(cartoons_feature, portraits_feature, hyper_parameters)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':

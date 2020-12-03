@@ -22,7 +22,7 @@ if __name__ == '__main__':
     valid_compute = True
     
     model = C2R(122).to(device)
-    model.load_state_dict(torch.load('weights/best_3912.pt'))
+    model.load_state_dict(torch.load('weights/best_6088.pt'))
     model.eval()
 
     print('...Testing is beginning...')

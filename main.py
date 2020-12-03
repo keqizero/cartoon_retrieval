@@ -17,11 +17,11 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # data parameters
     MAX_EPOCH = 100
-    batch_size = 40
+    batch_size = 56
     lr = 1e-5
     betas = (0.5, 0.999)
     weight_decay = 0
-    hyper_parameters = {'cm_tri': 1, 'margin': 10, 'num_per_cls': 4}
+    hyper_parameters = {'cm_tri': 1, 'margin': 50, 'num_per_cls': 7}
 
     print('...Data loading is beginning...')
     
@@ -32,6 +32,7 @@ if __name__ == '__main__':
     print('...Data loading is completed...')
     
     model = C2R(input_data_par['num_class']).to(device)
+    model.load_state_dict(torch.load('weights/best_6088.pt'))
     #model = IDCM_NN().to(device)
     
     params_to_update = list(model.parameters())

@@ -87,7 +87,8 @@ class ImageDataSet_Uniform(Dataset):
         # Data augmentation/processing methods.
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
         transf_list = []
-        transf_list.extend([transforms.ToTensor(), normalize])
+        transf_list.extend([transforms.RandomGrayscale(p=0.5), transforms.RandomHorizontalFlip(), transforms.RandomCrop((224, 224)), transforms.ToTensor(), normalize])
+        #transf_list.extend([transforms.ToTensor(), normalize])
         self.transform = transforms.Compose(transf_list)
 
         self.reshuffle()
