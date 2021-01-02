@@ -40,7 +40,6 @@ def process_images():
     
     label = 0
     
-    cartoon_dict, portrait_dict  = {}, {}
     for (root, dirs, files) in os.walk(dataset_path):
         if len(dirs):
             continue
@@ -49,7 +48,7 @@ def process_images():
         
         if str(label) not in c_h5py.keys():
             c_group = c_h5py.create_group(str(label))
-        if str(label) not in portrait_dict:
+        if str(label) not in p_h5py.keys():
             p_group = p_h5py.create_group(str(label))
         
         c_features = []

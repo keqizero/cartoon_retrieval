@@ -12,6 +12,7 @@ import random
 from PIL import Image
 
 input_transform = transforms.Compose([
+        #transforms.Resize([224, 224]),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406],
                              [0.229, 0.224, 0.225])
@@ -25,7 +26,7 @@ class ImageDataSet(Dataset):
 
     def __getitem__(self, index):
         image = self.images[index]
-        image = input_transform(cv2.imread(image))
+        image = input_transform(Image.open(image).convert('RGB'))
         label = self.labels[index]
         return image, label
 
@@ -88,7 +89,9 @@ class ImageDataSet_Uniform(Dataset):
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],std=[0.229, 0.224, 0.225])
         transf_list = []
         transf_list.extend([transforms.RandomGrayscale(p=0.5), transforms.RandomHorizontalFlip(), transforms.RandomCrop((224, 224)), transforms.ToTensor(), normalize])
-        #transf_list.extend([transforms.ToTensor(), normalize])
+        #transf_list.extend([transforms.RandomGrayscale(p=0.5), transforms.RandomHorizontalFlip(), transforms.RandomCrop((224, 224)), transforms.Resize((256, 256)), transforms.ToTensor(), normalize])
+        #transf_list.extend([transforms.RandomGrayscale(p=0.5), transforms.RandomHorizontalFlip(), transforms.ToTensor(), normalize])
+        #transf_list.extend([transforms.Resize([224, 224]), transforms.ToTensor(), normalize])
         self.transform = transforms.Compose(transf_list)
 
         self.reshuffle()
@@ -334,10 +337,10 @@ def get_loader_split_label(dataset_path, batch_size, num_per_cls=1):
     portrait_label_train = np.asarray(portrait_label_train)
     portrait_label_valid = np.asarray(portrait_label_valid)
 
-    #cartoon_label_train = ind2vec(cartoon_label_train, num_class).astype(int)
-    #cartoon_label_valid = ind2vec(cartoon_label_valid, num_class).astype(int)
-    #portrait_label_train = ind2vec(portrait_label_train, num_class).astype(int)
-    #portrait_label_valid = ind2vec(portrait_label_valid, num_class).astype(int)
+    cartoon_label_train = ind2vec(cartoon_label_train, num_class).astype(int)
+    cartoon_label_valid = ind2vec(cartoon_label_valid, num_class).astype(int)
+    portrait_label_train = ind2vec(portrait_label_train, num_class).astype(int)
+    portrait_label_valid = ind2vec(portrait_label_valid, num_class).astype(int)
 
     cartoons = {'train': cartoon_train, 'valid': cartoon_valid}
     cartoon_labels = {'train': cartoon_label_train, 'valid': cartoon_label_valid}
@@ -359,7 +362,10 @@ def get_loader_split_label(dataset_path, batch_size, num_per_cls=1):
     dataloader['train'] = DataLoader(train_dataset, batch_size=batch_size, num_workers=8, sampler=SequentialSampler(train_dataset), pin_memory=True, drop_last=True)
     dataloader['valid'] = DataLoader(valid_dataset, batch_size=batch_size, num_workers=8, sampler=SequentialSampler(valid_dataset), pin_memory=True, drop_last=True)
     
-    return dataloader, cartoon_dataloader, portrait_dataloader
+    input_data_par = {}
+    input_data_par['num_class'] = num_class - 1
+    
+    return dataloader, cartoon_dataloader, portrait_dataloader, input_data_par
 
 # directly read the preexacted features as dataset
 def get_loader_feature(cartoon_feature_path, portrait_feature_path, batch_size, num_per_cls=1):
@@ -532,8 +538,8 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
                 p_num += 1
         if c_num < 2 or p_num < 2:
             continue
-        c_train_num = int(c_num * 0.8)
-        p_train_num = int(p_num * 0.8)
+        c_train_num = int(c_num * 0.2)
+        p_train_num = int(p_num * 0.2)
         
         if str(label) not in cartoon_train_dict:
             cartoon_train_dict[str(label)] = []
@@ -548,7 +554,7 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
         for name in files:
             file_path = os.path.join(root, name)
             if name[0].lower() == 'c':
-                if c_index < c_train_num:
+                if c_index <= 2 * c_train_num or c_index >= 3 * c_train_num:
                     cartoon_train.append(file_path)
                     cartoon_label_train.append([label])
                     cartoon_train_dict[str(label)].append(file_path)
@@ -558,7 +564,7 @@ def get_loader(dataset_path, batch_size, num_per_cls=1):
                     cartoon_valid_dict[str(label)].append(file_path)
                 c_index += 1
             else:
-                if p_index < p_train_num:
+                if p_index <= 2 * p_train_num or p_index >= 3 * p_train_num:
                     portrait_train.append(file_path)
                     portrait_label_train.append([label])
                     portrait_train_dict[str(label)].append(file_path)

@@ -70,6 +70,8 @@ def CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls):
 
         loss = image_text_triplet_loss_0 + image_text_triplet_loss_1 + text_image_triplet_loss_0 + text_image_triplet_loss_1
     
+        #loss = image_text_triplet_loss_0 + image_text_triplet_loss_1
+    
     return loss
 
 def CrossModel_triplet_loss_hard_center(view1_feature, view2_feature, margin, num_per_cls):
@@ -138,6 +140,54 @@ def CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_c
             else:
                 d_n = d_n1
         view1_tri_loss.append(F.relu(margin + d_p - d_n).unsqueeze(0))
+    view1_tri_loss = torch.cat(view1_tri_loss)
+    
+    loss = view1_tri_loss.mean()
+    '''
+    view2_tri_loss = []
+    for index, view2 in enumerate(view2_feature):
+        cur_cls = index // num_per_cls
+        view1_index = cur_cls * num_per_cls
+        d_all = (view2 - view1_feature).pow(2).sum(-1)
+        d_p = d_all[view1_index:(view1_index + num_per_cls)].max()
+        if cur_cls == 0:
+            d_n = d_all[(view1_index + num_per_cls):].min()
+        elif cur_cls == cls_num - 1:
+            d_n = d_all[:view1_index].min()
+        else:
+            d_n1 = d_all[:view1_index].min()
+            d_n2 = d_all[(view1_index + num_per_cls):].min()
+            if d_n1 > d_n2:
+                d_n = d_n2
+            else:
+                d_n = d_n1
+        view2_tri_loss.append(F.relu(margin + d_p - d_n).unsqueeze(0))
+    view2_tri_loss = torch.cat(view2_tri_loss)
+    
+    loss = view1_tri_loss.mean() + view2_tri_loss.mean()
+    '''
+    return loss
+
+def CrossModel_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls):
+    loss = torch.tensor(0.0).cuda()
+    loss.requires_grad = True
+    
+    cls_num = len(view1_feature) // num_per_cls
+    
+    view1_tri_loss = []
+    for index, view1 in enumerate(view1_feature):
+        cur_cls = index // num_per_cls
+        view2_index = cur_cls * num_per_cls
+        d_all = (view1 - view2_feature).pow(2).sum(-1)
+        d_p = d_all[view2_index:(view2_index + num_per_cls)].max()
+        
+        for j in range(cls_num):
+            if j == cur_cls:
+                continue
+            d_n = d_all[j * num_per_cls:(j * num_per_cls + num_per_cls)].min()
+            
+            view1_tri_loss.append(F.relu(margin + d_p - d_n).unsqueeze(0))
+            
     view1_tri_loss = torch.cat(view1_tri_loss)
     
     loss = view1_tri_loss.mean()
@@ -227,16 +277,17 @@ def calc_loss(view1_feature, view2_feature, view1_predict, view2_predict, labels
     margin = hyper_parameters['margin']
     num_per_cls = hyper_parameters['num_per_cls']
     
-    term1 = CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_cls)
+    #term1 = CrossModel_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls)
+    #term1 = CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls)
     #term1 = CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin, 20, num_per_cls)
     #term2 = CrossModel_center_loss(view1_feature, view2_feature, num_per_cls)
     
-    im_loss = cm_tri * term1
+    #im_loss = cm_tri * term1
     #criteria = AngleLoss()
-    #criteria = nn.CrossEntropyLoss()
-    #criteria = criteria.cuda()
-    #term2 = criteria(view1_predict, labels_1.squeeze()) + criteria(view1_predict, labels_2.squeeze())
-    #im_loss = term2
+    criteria = nn.CrossEntropyLoss()
+    criteria = criteria.cuda()
+    term2 = criteria(view1_predict, labels_1.squeeze()) + criteria(view1_predict, labels_2.squeeze())
+    im_loss = term2
     
     return im_loss
 

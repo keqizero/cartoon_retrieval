@@ -60,6 +60,8 @@ def fx_calc_recall(cartoons, cartoon_labels, portraits, portrait_labels, recalls
                     r_a += 1
                     if r_a >= recall:
                         break
+            if r_a == 0:
+                continue
             r = r / r_a
             result.append(r)
         results.append(np.mean(result))

@@ -16,13 +16,13 @@ if __name__ == '__main__':
     # environmental setting: setting the following parameters based on your experimental environment.
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # data parameters
-    batch_size = 32
+    batch_size = 16
     
     test_compute = True
     valid_compute = True
     
     model = C2R(122).to(device)
-    model.load_state_dict(torch.load('weights/best_6088.pt'))
+    model.load_state_dict(torch.load('weights/best.pt'))
     model.eval()
 
     print('...Testing is beginning...')

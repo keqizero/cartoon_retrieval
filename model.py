@@ -134,8 +134,8 @@ class VideoNN(nn.Module):
     
 class IDCM_NN(nn.Module):
     """Network to learn text representations"""
-    def __init__(self, sketch_input_dim=2048, sketch_output_dim=2048,
-                 video_input_dim=2048, video_output_dim=2048, minus_one_dim=2048):
+    def __init__(self, sketch_input_dim=512, sketch_output_dim=512,
+                 video_input_dim=2048, video_output_dim=1024, minus_one_dim=512):
         super(IDCM_NN, self).__init__()
         self.sketch_net = ImgNN(sketch_input_dim, sketch_output_dim)
         self.video_net = VideoNN(video_input_dim, video_output_dim)
@@ -220,3 +220,75 @@ class C2R_Se(nn.Module):
         portraits_feature = (portraits_feature * portraits_attn).sum(-2)
         
         return portraits_feature
+
+    
+class ResNet34(nn.Module):
+    """
+    Container for ResNet50 s.t. it can be used for metric learning.
+    The Network has been broken down to allow for higher modularity, if one wishes
+    to target specific layers/blocks directly.
+    """
+    def __init__(self, list_style=False, no_norm=False, pretrained=True):
+        super(ResNet34, self).__init__()
+
+        if pretrained:
+            print('Getting pretrained weights...')
+            self.model = ptm.__dict__['resnet34'](num_classes=1000, pretrained='imagenet')
+            print('Done.')
+        else:
+            print('Not utilizing pretrained weights!')
+            self.model = ptm.__dict__['resnet34'](num_classes=1000, pretrained=None)
+
+        for module in filter(lambda m: type(m) == nn.BatchNorm2d, self.model.modules()):
+            module.eval()
+            module.train = lambda _: None
+
+        #self.model.last_linear = torch.nn.Linear(self.model.last_linear.in_features, embed_dim)
+
+        self.layer_blocks = nn.ModuleList([self.model.layer1, self.model.layer2, self.model.layer3, self.model.layer4])
+
+    def forward(self, x):
+        x = self.model.maxpool(self.model.relu(self.model.bn1(self.model.conv1(x))))
+
+        for layerblock in self.layer_blocks:
+            x = layerblock(x)
+
+        x = self.model.avgpool(x)
+        x = x.view(x.size(0),-1)
+        
+        #x = self.model.last_linear(x)
+        return x    
+
+class C2R_(nn.Module):
+    """Network to learn text representations"""
+    def __init__(self, cls_num=512):
+        super(C2R_, self).__init__()
+        self.cartoon_net = ResNet34()
+        pretrained_model = torch.load('weights/resnet34_adam.pth', map_location='cuda:0')
+        model_dict = self.cartoon_net.state_dict()
+        state_dict = {k:v for k,v in pretrained_model.items() if k in model_dict.keys()}
+        model_dict.update(state_dict)
+        self.cartoon_net.load_state_dict(model_dict)
+        
+        self.portrait_net = ResNet34()
+        
+        self.c_linear = nn.Linear(512, cls_num)
+        self.p_linear = nn.Linear(512, cls_num)
+
+    def forward(self, cartoons=None, portraits=None):
+        if cartoons == None:
+            portraits_feature = self.portrait_net(portraits)
+            portraits_predict = self.p_linear(portraits_feature)
+            return portraits_feature, portraits_predict
+        if portraits == None:
+            cartoons_feature = self.cartoon_net(cartoons)
+            cartoons_predict = self.c_linear(cartoons_feature)
+            return cartoons_feature, cartoons_predict
+        
+        cartoons_feature = self.cartoon_net(cartoons)
+        cartoons_predict = self.c_linear(cartoons_feature)
+        
+        portraits_feature = self.portrait_net(portraits)
+        portraits_predict = self.p_linear(portraits_feature)
+
+        return cartoons_feature, portraits_feature, cartoons_predict, portraits_predict  
