@@ -5,7 +5,7 @@ import torch
 
 from datetime import datetime
 import torch.optim as optim
-from model import C2R, C2R_Se
+from model import C2R_single
 from load_data import get_loader_test, get_loader
 from evaluate import test_recall1, fx_calc_recall, fx_calc_map_label
 import numpy as np
@@ -21,8 +21,8 @@ if __name__ == '__main__':
     test_compute = True
     valid_compute = True
     
-    model = C2R(122).to(device)
-    model.load_state_dict(torch.load('weights/best.pt'))
+    model = C2R_single(122).to(device)
+    model.load_state_dict(torch.load('weights/best1.pt'))
     model.eval()
 
     print('...Testing is beginning...')

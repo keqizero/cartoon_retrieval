@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
 import pretrainedmodels as ptm
-    
+
 class VGGNet(nn.Module):
     def __init__(self):
         """Select conv1_1 ~ conv5_1 activation maps."""
@@ -70,7 +70,8 @@ class F_R(nn.Module):
         x = self.backbone(x)
         pred = self.linear_layer(x)
         return x, pred
-        
+
+# two separate ResNet-50 to extract the image features
 class C2R(nn.Module):
     """Network to learn text representations"""
     def __init__(self, cls_num=512):
@@ -110,6 +111,33 @@ class C2R(nn.Module):
 
         return cartoons_feature, portraits_feature, cartoons_predict, portraits_predict  
 
+# a single ResNet50 to extract images in both domains
+class C2R_single(nn.Module):
+    """Network to learn text representations"""
+    def __init__(self, cls_num=512):
+        super(C2R_single, self).__init__()
+        self.cartoon_net = ResNet50()
+        
+        self.c_linear = nn.Linear(2048, cls_num)
+
+    def forward(self, cartoons=None, portraits=None):
+        if cartoons == None:
+            portraits_feature = self.cartoon_net(portraits)
+            portraits_predict = self.c_linear(portraits_feature)
+            return portraits_feature, portraits_predict
+        if portraits == None:
+            cartoons_feature = self.cartoon_net(cartoons)
+            cartoons_predict = self.c_linear(cartoons_feature)
+            return cartoons_feature, cartoons_predict
+        
+        cartoons_feature = self.cartoon_net(cartoons)
+        cartoons_predict = self.c_linear(cartoons_feature)
+        
+        portraits_feature = self.cartoon_net(portraits)
+        portraits_predict = self.c_linear(portraits_feature)
+
+        return cartoons_feature, portraits_feature, cartoons_predict, portraits_predict  
+    
 
 class ImgNN(nn.Module):
     """Network to learn image representations"""

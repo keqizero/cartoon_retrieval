@@ -21,7 +21,7 @@ def calc_label_sim(label_1, label_2):
 # def cos(x, y):
 #     return x.mm(y.t())
 
-def CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls):
+def CrossModal_triplet_loss(view1_feature, view2_feature, margin, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -74,7 +74,7 @@ def CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls):
     
     return loss
 
-def CrossModel_triplet_loss_hard_center(view1_feature, view2_feature, margin, num_per_cls):
+def CrossModal_triplet_loss_hard_center(view1_feature, view2_feature, margin, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -116,7 +116,7 @@ def CrossModel_triplet_loss_hard_center(view1_feature, view2_feature, margin, nu
     
     return loss
 
-def CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_cls):
+def CrossModal_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -168,7 +168,7 @@ def CrossModel_triplet_loss_hard(view1_feature, view2_feature, margin, num_per_c
     '''
     return loss
 
-def CrossModel_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls):
+def CrossModal_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -194,7 +194,7 @@ def CrossModel_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, n
     
     return loss
 
-def CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin_pn, margin_nn, num_per_cls):
+def CrossModal_quadruplet_loss_hard(view1_feature, view2_feature, margin_pn, margin_nn, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -245,7 +245,7 @@ def CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin_pn, mar
     
     return loss
 
-def CrossModel_center_loss(view1_feature, view2_feature, num_per_cls):
+def CrossModal_center_loss(view1_feature, view2_feature, num_per_cls):
     loss = torch.tensor(0.0).cuda()
     loss.requires_grad = True
     
@@ -277,17 +277,19 @@ def calc_loss(view1_feature, view2_feature, view1_predict, view2_predict, labels
     margin = hyper_parameters['margin']
     num_per_cls = hyper_parameters['num_per_cls']
     
-    #term1 = CrossModel_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls)
-    #term1 = CrossModel_triplet_loss(view1_feature, view2_feature, margin, num_per_cls)
-    #term1 = CrossModel_quadruplet_loss_hard(view1_feature, view2_feature, margin, 20, num_per_cls)
-    #term2 = CrossModel_center_loss(view1_feature, view2_feature, num_per_cls)
+    term1 = CrossModal_triplet_loss_hard_per_cls(view1_feature, view2_feature, margin, num_per_cls)
+    #term1 = CrossModal_triplet_loss(view1_feature, view2_feature, margin, num_per_cls)
+    #term1 = CrossModal_quadruplet_loss_hard(view1_feature, view2_feature, margin, 20, num_per_cls)
+    #term2 = CrossModal_center_loss(view1_feature, view2_feature, num_per_cls)
     
     #im_loss = cm_tri * term1
     #criteria = AngleLoss()
     criteria = nn.CrossEntropyLoss()
     criteria = criteria.cuda()
     term2 = criteria(view1_predict, labels_1.squeeze()) + criteria(view1_predict, labels_2.squeeze())
-    im_loss = term2
+    #print(term1)
+    #print(term2)
+    im_loss = term1 + term2
     
     return im_loss
 

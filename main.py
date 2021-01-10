@@ -5,7 +5,7 @@ import torch
 
 from datetime import datetime
 import torch.optim as optim
-from model import C2R, C2R_Se, IDCM_NN
+from model import C2R_single, IDCM_NN
 from train_model import train_model
 from load_data import get_loader, get_loader_feature, get_loader_split_label
 from evaluate import fx_calc_map_label, fx_calc_recall
@@ -28,8 +28,8 @@ if __name__ == '__main__':
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # data parameters
     MAX_EPOCH = 100
-    batch_size = 36
-    lr = 1e-5
+    batch_size = 45
+    lr = 1e-4
     betas = (0.5, 0.999)
     weight_decay = 0
     hyper_parameters = {'cm_tri': 1, 'margin': 50, 'num_per_cls': 3}
@@ -43,8 +43,8 @@ if __name__ == '__main__':
     
     print('...Data loading is completed...')
     
-    model = C2R(input_data_par['num_class']).to(device)
-    #model.load_state_dict(torch.load('weights/best_7019_3.pt'))
+    model = C2R_single(input_data_par['num_class']).to(device)
+    #model.load_state_dict(torch.load('weights/best_2771.pt'))
     #model = IDCM_NN().to(device)
 
     params_to_update = add_weight_decay(model, weight_decay)
